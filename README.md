@@ -41,7 +41,7 @@ Add the library as a dependency:
 
 ```toml
 [dependencies]
-sysdirs = "0.1"
+sysdirs = "0.9"
 ```
 
 ### Example
@@ -128,7 +128,7 @@ If you're building a pure Rust Android app using `android-activity` or `ndk-glue
 
 ```toml
 [dependencies]
-sysdirs = { version = "0.1", features = ["android-auto"] }
+sysdirs = { version = "0.9", features = ["android-auto"] }
 ```
 
 Paths are detected automatically via `ndk-context`. No initialization needed.
