@@ -1,10 +1,12 @@
 [package]
 name = "sysdirs"
-version = "0.9.2"
+version = "0.9.3"
 edition = "2024"
 authors = ["Sovran.la <support@sovran.la>"]
 description = "Cross-platform system directory paths for iOS, macOS, Android, Linux, Windows and other Unix"
 repository = "https://github.com/sovran-rs/sysdirs"
+homepage = "https://github.com/sovran-rs/sysdirs"
+documentation = "https://docs.rs/sysdirs"
 license = "MIT"
 readme = "README.md"
 keywords = ["directories", "paths", "cross-platform", "system", "mobile"]
