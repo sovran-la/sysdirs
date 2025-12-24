@@ -1,3 +1,4 @@
+#![cfg_attr(docsrs, feature(doc_auto_cfg))]
 //! # sysdirs
 //!
 //! A low-level library with a minimal API that provides platform-specific, user-accessible
