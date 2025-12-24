@@ -82,7 +82,81 @@
 //!
 //! \* Requires either the `android-auto` feature or [`init_android()`] to be called first
 
+use std::io;
+use std::path::Path;
 use std::path::PathBuf;
+
+// =============================================================================
+// Path Extension Trait
+// =============================================================================
+
+/// Extension trait for `Option<PathBuf>` that adds chainable path operations.
+///
+/// This trait makes it easy to work with directory paths in a fluent style:
+///
+/// ```rust
+/// use sysdirs::PathExt;
+///
+/// // Chain joins and ensure the directory exists
+/// let app_cache = sysdirs::cache_dir()
+///     .join("my-app")
+///     .join("data")
+///     .ensure();
+/// ```
+pub trait PathExt {
+	/// Joins a path component to the contained path, if present.
+	///
+	/// This is chainable, allowing multiple joins in sequence.
+	///
+	/// # Example
+	///
+	/// ```rust
+	/// use sysdirs::PathExt;
+	///
+	/// let path = sysdirs::data_dir()
+	///     .join("my-app")
+	///     .join("cache");
+	/// // Linux: Some(/home/alice/.local/share/my-app/cache)
+	/// ```
+	fn join<P: AsRef<Path>>(self, path: P) -> Option<PathBuf>;
+
+	/// Ensures the directory exists, creating it if necessary.
+	///
+	/// Returns the path if successful, or an error if:
+	/// - The original `Option` was `None` (directory not available on this platform)
+	/// - Directory creation failed (permissions, disk full, etc.)
+	///
+	/// # Example
+	///
+	/// ```rust,ignore
+	/// use sysdirs::PathExt;
+	///
+	/// let app_data = sysdirs::data_dir()
+	///     .join("my-app")
+	///     .ensure()?;
+	/// // Directory now exists, ready to use
+	/// ```
+	fn ensure(self) -> io::Result<PathBuf>;
+}
+
+impl PathExt for Option<PathBuf> {
+	fn join<P: AsRef<Path>>(self, path: P) -> Option<PathBuf> {
+		self.map(|p| p.join(path))
+	}
+
+	fn ensure(self) -> io::Result<PathBuf> {
+		match self {
+			Some(path) => {
+				std::fs::create_dir_all(&path)?;
+				Ok(path)
+			}
+			None => Err(io::Error::new(
+				io::ErrorKind::NotFound,
+				"directory not available on this platform",
+			)),
+		}
+	}
+}
 
 // =============================================================================
 // Platform Modules

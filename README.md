@@ -33,7 +33,7 @@ The `dirs` crate is great, but it doesn't support mobile platforms. If you're bu
 | iOS/tvOS/watchOS/visionOS | ✅ Full |
 | Android | ✅ Full (with `android-auto` or `init_android()`) |
 | WASM | ⚠️ Compiles, but returns `None` |
-| Other Unix (FreeBSD, Redox, etc.) | ⚠️ XDG fallback (FreeBSD tested, others untested) |
+| Other Unix (FreeBSD, Redox, etc.) | ✅ XDG fallback (FreeBSD CI tested) |
 
 ## Usage
 
@@ -66,6 +66,37 @@ sysdirs::config_dir();
 // Win: Some(C:\Users\Alice\AppData\Roaming)
 // Mac: Some(/Users/Alice/Library/Application Support)
 // iOS: Some(<sandbox>/Library/Application Support)
+```
+
+### Common Patterns
+
+The `PathExt` trait adds chainable operations for common tasks:
+
+```rust
+use sysdirs::PathExt;
+
+// Chain path joins
+let db_path = sysdirs::data_dir()
+    .join("my-app")
+    .join("database.sqlite");
+// Linux: Some(/home/alice/.local/share/my-app/database.sqlite)
+
+// Create app directory if it doesn't exist
+let app_cache = sysdirs::cache_dir()
+    .join("my-app")
+    .ensure()?;  // Creates the directory, returns io::Result<PathBuf>
+
+// One-liner for app config directory
+let config = sysdirs::config_dir().join("my-app").ensure()?;
+```
+
+Without `PathExt`, checking if a path exists:
+
+```rust
+// Only proceed if the directory exists
+if let Some(path) = sysdirs::data_dir().filter(|p| p.exists()) {
+    // use path
+}
 ```
 
 ### Android Setup
@@ -164,6 +195,7 @@ These functions are not present in the `dirs` crate:
 | API compatible | - | ✅ |
 | `temp_dir()` | ❌ | ✅ |
 | `library_dir()` | ❌ | ✅ |
+| `PathExt` trait | ❌ | ✅ |
 
 ## Cargo Features
 
@@ -177,7 +209,7 @@ These functions are not present in the `dirs` crate:
 * **Mobile-first**: iOS and Android are first-class citizens, not afterthoughts
 * **Drop-in replacement**: Same API as `dirs` for easy migration
 * **No dependencies**: Pure Rust, no C dependencies (except platform APIs)
-* **No magic**: This library doesn't create directories or check existence—it just tells you where things *should* be
+* **Composable**: `PathExt` trait adds chainable `.join()` and `.ensure()` for common workflows
 
 ## License
 
