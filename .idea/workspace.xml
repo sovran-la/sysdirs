@@ -12,7 +12,7 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="9085c8dc-ff19-4a0f-8a07-8a181aca6f54" name="Changes" comment="">
-      <change beforePath="$PROJECT_DIR$/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/README.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/Cargo.toml" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -82,7 +82,7 @@
       <option name="presentableId" value="Default" />
       <updated>1766526752797</updated>
       <workItem from="1766526753965" duration="6729000" />
-      <workItem from="1766606280729" duration="3731000" />
+      <workItem from="1766606280729" duration="3765000" />
     </task>
     <servers />
   </component>
