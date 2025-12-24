@@ -15,8 +15,8 @@ fn home() -> Option<PathBuf> {
 /// Expand tilde in paths for users who don't read specs.
 fn expand_tilde(path: PathBuf) -> Option<PathBuf> {
 	let path_str = path.to_str()?;
-	if path_str.starts_with("~/") {
-		home().map(|h| h.join(&path_str[2..]))
+	if let Some(rest) = path_str.strip_prefix("~/") {
+		home().map(|h| h.join(rest))
 	} else if path_str == "~" {
 		home()
 	} else {

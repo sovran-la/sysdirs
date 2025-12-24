@@ -5,7 +5,7 @@
 #![cfg(target_os = "macos")]
 
 use std::path::PathBuf;
-use sysdirs::{set_domain, SearchPathDomain};
+use sysdirs::{SearchPathDomain, set_domain};
 
 #[test]
 fn test_user_domain_returns_home_paths() {

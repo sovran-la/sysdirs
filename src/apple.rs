@@ -93,9 +93,9 @@ fn sysdir_path(dir: SysdirDirectory) -> Option<PathBuf> {
 		let path_str = c_str.to_str().ok()?;
 
 		// Handle ~ expansion for user domain
-		if path_str.starts_with("~/") {
+		if let Some(rest) = path_str.strip_prefix("~/") {
 			let home = std::env::var_os("HOME")?;
-			Some(PathBuf::from(home).join(&path_str[2..]))
+			Some(PathBuf::from(home).join(rest))
 		} else if path_str == "~" {
 			std::env::var_os("HOME").map(PathBuf::from)
 		} else {
