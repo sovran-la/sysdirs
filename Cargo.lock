@@ -132,7 +132,7 @@ dependencies = [
 
 [[package]]
 name = "sysdirs"
-version = "0.9.0"
+version = "0.9.1"
 dependencies = [
  "jni",
  "ndk-context",
