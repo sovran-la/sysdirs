@@ -9,7 +9,7 @@
 * a tiny low-level library with a minimal API
 * that provides the platform-specific, user-accessible locations
 * for retrieving and storing configuration, cache and other data
-* on Linux, Windows (≥ Vista), macOS, **iOS, Android, and WASM**
+* on Linux, Windows (≥ Vista), macOS, Apple OS's, and Android
 
 The library provides the location of these directories by leveraging the mechanisms defined by:
 
