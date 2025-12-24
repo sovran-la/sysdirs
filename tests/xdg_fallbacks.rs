@@ -18,10 +18,7 @@ where
 	F: FnOnce() -> R,
 {
 	// Save original values
-	let originals: Vec<_> = vars
-		.iter()
-		.map(|(k, _)| (*k, env::var_os(k)))
-		.collect();
+	let originals: Vec<_> = vars.iter().map(|(k, _)| (*k, env::var_os(k))).collect();
 
 	// Set new values
 	for (k, v) in vars {
@@ -55,10 +52,7 @@ where
 #[test]
 fn test_cache_dir_fallback() {
 	with_env(
-		&[
-			("HOME", Some("/home/testuser")),
-			("XDG_CACHE_HOME", None),
-		],
+		&[("HOME", Some("/home/testuser")), ("XDG_CACHE_HOME", None)],
 		|| {
 			let cache = sysdirs::cache_dir();
 			assert_eq!(cache, Some(PathBuf::from("/home/testuser/.cache")));
@@ -69,10 +63,7 @@ fn test_cache_dir_fallback() {
 #[test]
 fn test_config_dir_fallback() {
 	with_env(
-		&[
-			("HOME", Some("/home/testuser")),
-			("XDG_CONFIG_HOME", None),
-		],
+		&[("HOME", Some("/home/testuser")), ("XDG_CONFIG_HOME", None)],
 		|| {
 			let config = sysdirs::config_dir();
 			assert_eq!(config, Some(PathBuf::from("/home/testuser/.config")));
@@ -83,10 +74,7 @@ fn test_config_dir_fallback() {
 #[test]
 fn test_data_dir_fallback() {
 	with_env(
-		&[
-			("HOME", Some("/home/testuser")),
-			("XDG_DATA_HOME", None),
-		],
+		&[("HOME", Some("/home/testuser")), ("XDG_DATA_HOME", None)],
 		|| {
 			let data = sysdirs::data_dir();
 			assert_eq!(data, Some(PathBuf::from("/home/testuser/.local/share")));
@@ -97,10 +85,7 @@ fn test_data_dir_fallback() {
 #[test]
 fn test_state_dir_fallback() {
 	with_env(
-		&[
-			("HOME", Some("/home/testuser")),
-			("XDG_STATE_HOME", None),
-		],
+		&[("HOME", Some("/home/testuser")), ("XDG_STATE_HOME", None)],
 		|| {
 			let state = sysdirs::state_dir();
 			assert_eq!(state, Some(PathBuf::from("/home/testuser/.local/state")));
@@ -111,10 +96,7 @@ fn test_state_dir_fallback() {
 #[test]
 fn test_executable_dir_fallback() {
 	with_env(
-		&[
-			("HOME", Some("/home/testuser")),
-			("XDG_BIN_HOME", None),
-		],
+		&[("HOME", Some("/home/testuser")), ("XDG_BIN_HOME", None)],
 		|| {
 			let bin = sysdirs::executable_dir();
 			assert_eq!(bin, Some(PathBuf::from("/home/testuser/.local/bin")));
@@ -126,10 +108,7 @@ fn test_executable_dir_fallback() {
 fn test_runtime_dir_no_fallback() {
 	// XDG_RUNTIME_DIR has no default - it should return None if unset
 	with_env(
-		&[
-			("HOME", Some("/home/testuser")),
-			("XDG_RUNTIME_DIR", None),
-		],
+		&[("HOME", Some("/home/testuser")), ("XDG_RUNTIME_DIR", None)],
 		|| {
 			let runtime = sysdirs::runtime_dir();
 			assert_eq!(runtime, None);
@@ -139,13 +118,10 @@ fn test_runtime_dir_no_fallback() {
 
 #[test]
 fn test_temp_dir_fallback() {
-	with_env(
-		&[("TMPDIR", None)],
-		|| {
-			let temp = sysdirs::temp_dir();
-			assert_eq!(temp, Some(PathBuf::from("/tmp")));
-		},
-	);
+	with_env(&[("TMPDIR", None)], || {
+		let temp = sysdirs::temp_dir();
+		assert_eq!(temp, Some(PathBuf::from("/tmp")));
+	});
 }
 
 #[test]
@@ -179,13 +155,13 @@ fn test_user_dirs_no_fallback() {
 #[test]
 fn test_font_dir_derived_from_data() {
 	with_env(
-		&[
-			("HOME", Some("/home/testuser")),
-			("XDG_DATA_HOME", None),
-		],
+		&[("HOME", Some("/home/testuser")), ("XDG_DATA_HOME", None)],
 		|| {
 			let font = sysdirs::font_dir();
-			assert_eq!(font, Some(PathBuf::from("/home/testuser/.local/share/fonts")));
+			assert_eq!(
+				font,
+				Some(PathBuf::from("/home/testuser/.local/share/fonts"))
+			);
 		},
 	);
 }
