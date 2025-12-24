@@ -9,18 +9,31 @@ use std::env;
 use std::path::PathBuf;
 
 /// Helper to run a test with temporary env var changes, restoring afterwards.
+///
+/// # Safety
+/// This modifies environment variables which is inherently unsafe in multi-threaded
+/// contexts. Tests using this helper should run with --test-threads=1 or accept
+/// potential flakiness.
 fn with_env<F, R>(vars: &[(&str, Option<&str>)], f: F) -> R
 where
 	F: FnOnce() -> R,
 {
 	// Save original values
-	let originals: Vec<_> = vars.iter().map(|(k, _)| (*k, env::var_os(k))).collect();
+	let originals: Vec<_> = vars
+		.iter()
+		.map(|(k, _)| (*k, env::var_os(k)))
+		.collect();
 
 	// Set new values
 	for (k, v) in vars {
-		match v {
-			Some(val) => env::set_var(k, val),
-			None => env::remove_var(k),
+		// SAFETY: We're in a test context and accept the risk of env var mutation.
+		// These tests are cfg-gated to specific platforms and don't run in parallel
+		// with production code.
+		unsafe {
+			match v {
+				Some(val) => env::set_var(k, val),
+				None => env::remove_var(k),
+			}
 		}
 	}
 
@@ -28,9 +41,12 @@ where
 
 	// Restore original values
 	for (k, original) in originals {
-		match original {
-			Some(val) => env::set_var(k, val),
-			None => env::remove_var(k),
+		// SAFETY: Same as above - restoring original env state.
+		unsafe {
+			match original {
+				Some(val) => env::set_var(k, val),
+				None => env::remove_var(k),
+			}
 		}
 	}
 
@@ -167,7 +183,10 @@ fn test_no_expansion_for_tilde_in_middle() {
 #[test]
 fn test_tilde_expansion_with_missing_home() {
 	with_env(
-		&[("HOME", None), ("XDG_CACHE_HOME", Some("~/my-cache"))],
+		&[
+			("HOME", None),
+			("XDG_CACHE_HOME", Some("~/my-cache")),
+		],
 		|| {
 			// Can't expand ~ without HOME, should return None
 			let cache = sysdirs::cache_dir();
