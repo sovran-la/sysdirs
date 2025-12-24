@@ -1,7 +1,7 @@
 //! # sysdirs
 //!
 //! A low-level library with a minimal API that provides platform-specific, user-accessible
-//! locations for finding and storing configuration, cache and other data on Linux, Redox,
+//! locations for finding and storing configuration, cache and other data on Linux,
 //! Windows (≥ Vista), macOS, **iOS, Android, and WASM**.
 //!
 //! The library provides the location of these directories by leveraging the mechanisms defined by:

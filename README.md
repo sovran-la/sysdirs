@@ -9,7 +9,7 @@
 * a tiny low-level library with a minimal API
 * that provides the platform-specific, user-accessible locations
 * for retrieving and storing configuration, cache and other data
-* on Linux, Redox, Windows (≥ Vista), macOS, **iOS, Android, and WASM**
+* on Linux, Windows (≥ Vista), macOS, **iOS, Android, and WASM**
 
 The library provides the location of these directories by leveraging the mechanisms defined by:
 
@@ -26,14 +26,14 @@ The `dirs` crate is great, but it doesn't support mobile platforms. If you're bu
 ## Platforms
 
 | Platform | Support |
-|----------|---------|
+|----------|:--------|
 | Linux | ✅ Full |
 | macOS | ✅ Full |
 | Windows | ✅ Full |
 | iOS/tvOS/watchOS/visionOS | ✅ Full |
 | Android | ✅ Full (with `android-auto` or `init_android()`) |
-| WASM | ⚠️ Returns `None` |
-| Other Unix | ✅ Linux conventions |
+| WASM | ⚠️ Compiles, but returns `None` |
+| Other Unix (FreeBSD, Redox, etc.) | ⚠️ XDG fallback (FreeBSD tested, others untested) |
 
 ## Usage
 
@@ -157,7 +157,7 @@ These functions are not present in the `dirs` crate:
 | Linux | ✅ | ✅ |
 | macOS | ✅ | ✅ |
 | Windows | ✅ | ✅ |
-| Redox | ✅ | ✅ |
+| Other Unix | ✅ | ✅ (XDG fallback) |
 | **iOS** | ❌ | ✅ |
 | **Android** | ❌ | ✅ |
 | **WASM** | ❌ | ✅ (returns None) |

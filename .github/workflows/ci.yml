@@ -111,3 +111,18 @@ jobs:
       
       - name: Check with android-auto feature
         run: cargo check --target aarch64-linux-android --features android-auto
+
+  freebsd-test:
+    name: Test (FreeBSD)
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Test on FreeBSD
+        uses: vmactions/freebsd-vm@v1
+        with:
+          usesh: true
+          run: |
+            pkg install -y rust
+            cargo test --verbose
