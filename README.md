@@ -90,6 +90,25 @@ let app_cache = sysdirs::cache_dir()
 let config = sysdirs::config_dir().join("my-app").ensure()?;
 ```
 
+Handling `ensure()` errors:
+
+```rust
+use sysdirs::PathExt;
+use std::io::ErrorKind;
+
+match sysdirs::data_dir().join("my-app").ensure() {
+    Ok(path) => println!("Using {}", path.display()),
+    Err(e) if e.kind() == ErrorKind::NotFound => {
+        // Platform doesn't have a data directory (e.g., WASM)
+        eprintln!("Data directory not available on this platform");
+    }
+    Err(e) if e.kind() == ErrorKind::PermissionDenied => {
+        eprintln!("Permission denied creating directory");
+    }
+    Err(e) => eprintln!("Failed to create directory: {}", e),
+}
+```
+
 Without `PathExt`, checking if a path exists:
 
 ```rust
