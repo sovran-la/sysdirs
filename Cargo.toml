@@ -1,0 +1,38 @@
+[package]
+name = "sysdirs"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.70"
+authors = ["Sovran.la <support@sovran.la>"]
+description = "Cross-platform system directory paths for iOS, macOS, Android, Linux, Windows, and WASM"
+repository = "https://github.com/sovran-rs/sysdirs"
+license = "MIT"
+readme = "README.md"
+keywords = ["directories", "paths", "cross-platform", "system", "mobile"]
+categories = ["filesystem", "os"]
+
+[features]
+default = []
+# Auto-detect Android paths for pure Rust Android apps using android-activity/ndk-glue.
+# If you're embedding Rust in an existing Kotlin/Java app, use init_android() instead.
+android-auto = ["ndk-context", "jni"]
+# Internal: enables the release tool binary
+release-tool = ["dep:toml_edit"]
+
+[dependencies]
+# No runtime dependencies by default - pure Rust!
+
+# Optional: only needed for release tool
+toml_edit = { version = "0.22", optional = true }
+
+# Optional Android auto-detection (for pure Rust Android apps)
+[target.'cfg(target_os = "android")'.dependencies]
+ndk-context = { version = "0.1", optional = true }
+jni = { version = "0.21", optional = true, default-features = false }
+
+[dev-dependencies]
+
+[[bin]]
+name = "release"
+path = "tools/release.rs"
+required-features = ["release-tool"]
