@@ -5,16 +5,16 @@
 #![cfg(target_os = "macos")]
 
 use std::path::PathBuf;
-use sysdirs::{SearchPathDomain, set_domain};
+use sysdirs::{set_domain, SearchPathDomain};
 
 #[test]
 fn test_user_domain_returns_home_paths() {
 	set_domain(SearchPathDomain::User);
-	
+
 	let cache = sysdirs::cache_dir();
 	assert!(cache.is_some());
 	let cache_path = cache.unwrap();
-	
+
 	// User domain should return paths under ~/Library
 	let home = std::env::var("HOME").expect("HOME not set");
 	assert!(
@@ -33,11 +33,11 @@ fn test_user_domain_returns_home_paths() {
 #[test]
 fn test_local_domain_returns_root_library() {
 	set_domain(SearchPathDomain::Local);
-	
+
 	let cache = sysdirs::cache_dir();
 	assert!(cache.is_some());
 	let cache_path = cache.unwrap();
-	
+
 	// Local domain should return /Library/Caches
 	assert_eq!(
 		cache_path,
@@ -50,11 +50,11 @@ fn test_local_domain_returns_root_library() {
 #[test]
 fn test_system_domain_returns_system_library() {
 	set_domain(SearchPathDomain::System);
-	
+
 	let cache = sysdirs::cache_dir();
 	assert!(cache.is_some());
 	let cache_path = cache.unwrap();
-	
+
 	// System domain should return /System/Library/Caches
 	assert_eq!(
 		cache_path,
@@ -67,11 +67,11 @@ fn test_system_domain_returns_system_library() {
 #[test]
 fn test_network_domain_returns_network_library() {
 	set_domain(SearchPathDomain::Network);
-	
+
 	let library = sysdirs::library_dir();
 	assert!(library.is_some());
 	let library_path = library.unwrap();
-	
+
 	// Network domain should return /Network/Library
 	assert_eq!(
 		library_path,
@@ -84,11 +84,11 @@ fn test_network_domain_returns_network_library() {
 #[test]
 fn test_domain_affects_multiple_dirs() {
 	set_domain(SearchPathDomain::Local);
-	
+
 	let cache = sysdirs::cache_dir();
 	let config = sysdirs::config_dir();
 	let library = sysdirs::library_dir();
-	
+
 	assert_eq!(cache, Some(PathBuf::from("/Library/Caches")));
 	assert_eq!(config, Some(PathBuf::from("/Library/Application Support")));
 	assert_eq!(library, Some(PathBuf::from("/Library")));
@@ -99,15 +99,15 @@ fn test_domain_switch_is_immediate() {
 	// Start with user
 	set_domain(SearchPathDomain::User);
 	let user_cache = sysdirs::cache_dir().unwrap();
-	
+
 	// Switch to local
 	set_domain(SearchPathDomain::Local);
 	let local_cache = sysdirs::cache_dir().unwrap();
-	
+
 	// Switch back to user
 	set_domain(SearchPathDomain::User);
 	let user_cache_again = sysdirs::cache_dir().unwrap();
-	
+
 	// Verify they're different
 	assert_ne!(user_cache, local_cache);
 	assert_eq!(user_cache, user_cache_again);
@@ -118,16 +118,16 @@ fn test_domain_switch_is_immediate() {
 fn test_home_dir_ignores_domain() {
 	// home_dir uses $HOME, not sysdir, so domain shouldn't matter
 	let home = std::env::var("HOME").expect("HOME not set");
-	
+
 	set_domain(SearchPathDomain::User);
 	let home_user = sysdirs::home_dir();
-	
+
 	set_domain(SearchPathDomain::Local);
 	let home_local = sysdirs::home_dir();
-	
+
 	set_domain(SearchPathDomain::System);
 	let home_system = sysdirs::home_dir();
-	
+
 	// All should be the same
 	assert_eq!(home_user, Some(PathBuf::from(&home)));
 	assert_eq!(home_local, Some(PathBuf::from(&home)));
@@ -137,16 +137,19 @@ fn test_home_dir_ignores_domain() {
 #[test]
 fn test_preference_dir_derived_from_library() {
 	set_domain(SearchPathDomain::Local);
-	
+
 	let prefs = sysdirs::preference_dir();
 	assert_eq!(prefs, Some(PathBuf::from("/Library/Preferences")));
-	
+
 	set_domain(SearchPathDomain::User);
-	
+
 	let user_prefs = sysdirs::preference_dir();
 	assert!(user_prefs.is_some());
 	assert!(
-		user_prefs.unwrap().to_string_lossy().contains("Library/Preferences"),
+		user_prefs
+			.unwrap()
+			.to_string_lossy()
+			.contains("Library/Preferences"),
 		"Expected Library/Preferences in path"
 	);
 }
@@ -154,7 +157,7 @@ fn test_preference_dir_derived_from_library() {
 #[test]
 fn test_font_dir_derived_from_library() {
 	set_domain(SearchPathDomain::Local);
-	
+
 	let fonts = sysdirs::font_dir();
 	assert_eq!(fonts, Some(PathBuf::from("/Library/Fonts")));
 }

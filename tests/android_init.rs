@@ -9,7 +9,7 @@ use std::path::PathBuf;
 #[test]
 fn test_init_android_sets_paths() {
 	sysdirs::init_android("/data/data/com.example.app/files");
-	
+
 	assert_eq!(
 		sysdirs::home_dir(),
 		Some(PathBuf::from("/data/data/com.example.app/files"))
@@ -35,7 +35,7 @@ fn test_init_android_with_cache_sets_separate_cache() {
 		"/data/data/com.example.app/files",
 		"/data/data/com.example.app/cache",
 	);
-	
+
 	assert_eq!(
 		sysdirs::home_dir(),
 		Some(PathBuf::from("/data/data/com.example.app/files"))
@@ -50,7 +50,7 @@ fn test_init_android_with_cache_sets_separate_cache() {
 #[test]
 fn test_temp_dir_derived_from_files() {
 	sysdirs::init_android("/data/data/com.example.app/files");
-	
+
 	assert_eq!(
 		sysdirs::temp_dir(),
 		Some(PathBuf::from("/data/data/com.example.app/files/tmp"))
@@ -60,7 +60,7 @@ fn test_temp_dir_derived_from_files() {
 #[test]
 fn test_user_dirs_return_none_on_android() {
 	sysdirs::init_android("/data/data/com.example.app/files");
-	
+
 	// Android doesn't expose user directories to native code
 	assert_eq!(sysdirs::audio_dir(), None);
 	assert_eq!(sysdirs::desktop_dir(), None);
@@ -74,7 +74,7 @@ fn test_user_dirs_return_none_on_android() {
 #[test]
 fn test_library_dir_none_on_android() {
 	sysdirs::init_android("/data/data/com.example.app/files");
-	
+
 	// Library is an Apple concept
 	assert_eq!(sysdirs::library_dir(), None);
 }

@@ -664,10 +664,7 @@ mod tests {
 	#[cfg(target_os = "android")]
 	fn test_android_init() {
 		init_android("/data/data/com.test/files");
-		assert_eq!(
-			home_dir(),
-			Some(PathBuf::from("/data/data/com.test/files"))
-		);
+		assert_eq!(home_dir(), Some(PathBuf::from("/data/data/com.test/files")));
 		assert_eq!(
 			cache_dir(),
 			Some(PathBuf::from("/data/data/com.test/files/cache"))

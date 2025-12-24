@@ -39,10 +39,7 @@ impl SysdirState {
 }
 
 unsafe extern "C" {
-	fn sysdir_start_search_path_enumeration(
-		dir: SysdirDirectory,
-		domain_mask: u32,
-	) -> SysdirState;
+	fn sysdir_start_search_path_enumeration(dir: SysdirDirectory, domain_mask: u32) -> SysdirState;
 
 	fn sysdir_get_next_search_path_enumeration(
 		state: SysdirState,

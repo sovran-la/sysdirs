@@ -14,10 +14,7 @@ where
 	F: FnOnce() -> R,
 {
 	// Save original values
-	let originals: Vec<_> = vars
-		.iter()
-		.map(|(k, _)| (*k, env::var_os(k)))
-		.collect();
+	let originals: Vec<_> = vars.iter().map(|(k, _)| (*k, env::var_os(k))).collect();
 
 	// Set new values
 	for (k, v) in vars {
@@ -170,10 +167,7 @@ fn test_no_expansion_for_tilde_in_middle() {
 #[test]
 fn test_tilde_expansion_with_missing_home() {
 	with_env(
-		&[
-			("HOME", None),
-			("XDG_CACHE_HOME", Some("~/my-cache")),
-		],
+		&[("HOME", None), ("XDG_CACHE_HOME", Some("~/my-cache"))],
 		|| {
 			// Can't expand ~ without HOME, should return None
 			let cache = sysdirs::cache_dir();
