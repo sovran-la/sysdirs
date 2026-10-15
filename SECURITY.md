@@ -18,7 +18,13 @@ Security fixes are released for the latest minor version only.
 
 **Please do not report security vulnerabilities through public GitHub issues.**
 
-Email **brandon@redf.net** with the subject line `[sysdirs security]`. Please include:
+Report privately through either channel:
+
+- **GitHub:** open a [private security advisory](https://github.com/sovran-la/sysdirs/security/advisories/new)
+  from the repository's Security tab.
+- **Email:** send to **brandon@redf.net** with the subject line `[sysdirs security]`.
+
+Please include:
 
 - The affected version(s) and platform(s)
 - A description of the issue and its impact
