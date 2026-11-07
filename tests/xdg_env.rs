@@ -72,14 +72,16 @@ fn lookup(func: &str, env: &[(&str, Option<&str>)]) -> Option<PathBuf> {
 		String::from_utf8_lossy(&out.stderr)
 	);
 	let stdout = String::from_utf8(out.stdout).unwrap();
-	let line = stdout
-		.lines()
-		.find(|l| l.starts_with("PROBE:"))
-		.unwrap_or_else(|| panic!("no PROBE line in:\n{stdout}"));
+	// libtest prints "test probe ... " before our output on the same line,
+	// so locate the marker by substring rather than line start.
+	let start = stdout
+		.find("PROBE:")
+		.unwrap_or_else(|| panic!("no PROBE marker in:\n{stdout}"));
+	let line = stdout[start..].lines().next().unwrap();
 	match line.strip_prefix("PROBE:Some:") {
 		Some(p) => Some(PathBuf::from(p)),
 		None => {
-			assert_eq!(line, "PROBE:None");
+			assert_eq!(line, "PROBE:None", "unexpected marker in:\n{stdout}");
 			None
 		}
 	}
