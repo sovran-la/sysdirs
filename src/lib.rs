@@ -43,7 +43,7 @@
 //!
 //! ```toml
 //! [dependencies]
-//! sysdirs = { version = "0.1", features = ["android-auto"] }
+//! sysdirs = { version = "0.9", features = ["android-auto"] }
 //! ```
 //!
 //! ### Option 2: Kotlin/Java apps embedding Rust
