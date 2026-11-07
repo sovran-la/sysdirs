@@ -38,6 +38,8 @@ fn probe() {
 		"executable_dir" => sysdirs::executable_dir(),
 		"runtime_dir" => sysdirs::runtime_dir(),
 		"audio_dir" => sysdirs::audio_dir(),
+		"desktop_dir" => sysdirs::desktop_dir(),
+		"video_dir" => sysdirs::video_dir(),
 		"font_dir" => sysdirs::font_dir(),
 		"temp_dir" => sysdirs::temp_dir(),
 		other => panic!("unknown probe {other}"),
@@ -302,31 +304,145 @@ fn runtime_dir_none_when_empty() {
 	);
 }
 
-#[cfg(target_os = "linux")]
+// -----------------------------------------------------------------------------
+// User dirs: env var, then $XDG_CONFIG_HOME/user-dirs.dirs
+// -----------------------------------------------------------------------------
+
+/// A scratch XDG_CONFIG_HOME holding one `user-dirs.dirs`, removed on drop.
+struct ConfigHome(PathBuf);
+
+impl ConfigHome {
+	fn with_user_dirs(contents: &str) -> Self {
+		let dir = std::env::temp_dir().join(format!(
+			"sysdirs-xdg-env-{}-{:?}",
+			std::process::id(),
+			std::thread::current().id()
+		));
+		std::fs::create_dir_all(&dir).unwrap();
+		std::fs::write(dir.join("user-dirs.dirs"), contents).unwrap();
+		Self(dir)
+	}
+
+	fn path(&self) -> &str {
+		self.0.to_str().unwrap()
+	}
+}
+
+impl Drop for ConfigHome {
+	fn drop(&mut self) {
+		let _ = std::fs::remove_dir_all(&self.0);
+	}
+}
+
+const USER_DIRS: &str = "XDG_MUSIC_DIR=\"$HOME/Music\"\nXDG_DESKTOP_DIR=\"$HOME/\"\n";
+
 #[test]
-fn audio_dir_honors_user_dir_var() {
+fn user_dir_env_var_wins() {
 	assert_eq!(
-		lookup("audio_dir", &[("XDG_MUSIC_DIR", Some("/home/probe/Music"))]),
+		lookup("audio_dir", &[("XDG_MUSIC_DIR", Some("/home/probe/Tunes"))]),
+		p("/home/probe/Tunes")
+	);
+}
+
+#[test]
+fn user_dir_none_when_nothing_configured() {
+	let cfg = ConfigHome::with_user_dirs("");
+	assert_eq!(
+		lookup("audio_dir", &[("XDG_CONFIG_HOME", Some(cfg.path()))]),
+		None
+	);
+}
+
+#[test]
+fn user_dir_none_when_file_missing() {
+	let cfg = ConfigHome::with_user_dirs("");
+	std::fs::remove_file(cfg.0.join("user-dirs.dirs")).unwrap();
+	assert_eq!(
+		lookup("audio_dir", &[("XDG_CONFIG_HOME", Some(cfg.path()))]),
+		None
+	);
+}
+
+#[test]
+fn user_dir_read_from_file() {
+	let cfg = ConfigHome::with_user_dirs(USER_DIRS);
+	assert_eq!(
+		lookup("audio_dir", &[("XDG_CONFIG_HOME", Some(cfg.path()))]),
 		p("/home/probe/Music")
 	);
 }
 
-#[cfg(target_os = "linux")]
 #[test]
-fn audio_dir_none_when_unset_or_relative() {
-	assert_eq!(lookup("audio_dir", &[]), None);
+fn user_dir_env_var_overrides_file() {
+	let cfg = ConfigHome::with_user_dirs(USER_DIRS);
 	assert_eq!(
-		lookup("audio_dir", &[("XDG_MUSIC_DIR", Some("Music"))]),
+		lookup(
+			"audio_dir",
+			&[
+				("XDG_CONFIG_HOME", Some(cfg.path())),
+				("XDG_MUSIC_DIR", Some("/srv/music"))
+			]
+		),
+		p("/srv/music")
+	);
+}
+
+#[test]
+fn user_dir_invalid_env_var_falls_through_to_file() {
+	let cfg = ConfigHome::with_user_dirs(USER_DIRS);
+	assert_eq!(
+		lookup(
+			"audio_dir",
+			&[
+				("XDG_CONFIG_HOME", Some(cfg.path())),
+				("XDG_MUSIC_DIR", Some("relative"))
+			]
+		),
+		p("/home/probe/Music")
+	);
+}
+
+#[test]
+fn user_dir_disabled_in_file_is_none() {
+	let cfg = ConfigHome::with_user_dirs(USER_DIRS);
+	assert_eq!(
+		lookup("desktop_dir", &[("XDG_CONFIG_HOME", Some(cfg.path()))]),
 		None
 	);
 }
 
-#[cfg(not(target_os = "linux"))]
 #[test]
-fn audio_dir_always_none_on_generic_unix() {
+fn user_dir_file_needs_home_for_home_relative_entries() {
+	let cfg = ConfigHome::with_user_dirs(USER_DIRS);
 	assert_eq!(
-		lookup("audio_dir", &[("XDG_MUSIC_DIR", Some("/home/probe/Music"))]),
+		lookup(
+			"audio_dir",
+			&[("HOME", None), ("XDG_CONFIG_HOME", Some(cfg.path()))]
+		),
 		None
+	);
+}
+
+#[test]
+fn user_dir_file_follows_default_config_home() {
+	// No XDG_CONFIG_HOME: the file is looked up under $HOME/.config.
+	let cfg = ConfigHome::with_user_dirs("");
+	let home = cfg.0.join("home");
+	std::fs::create_dir_all(home.join(".config")).unwrap();
+	std::fs::write(
+		home.join(".config/user-dirs.dirs"),
+		"XDG_VIDEOS_DIR=\"$HOME/Movies\"\n",
+	)
+	.unwrap();
+	assert_eq!(
+		lookup(
+			"video_dir",
+			&[
+				("HOME", Some(home.to_str().unwrap())),
+				("XDG_CONFIG_HOME", None)
+			]
+		),
+		Some(home.join("Movies"))
 	);
 }
 
