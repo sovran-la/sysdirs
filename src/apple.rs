@@ -3,9 +3,9 @@
 //! Uses the sysdir FFI for proper sandbox-aware directory lookups.
 
 use crate::SearchPathDomain;
-use std::cell::Cell;
 use std::ffi::{CStr, c_char};
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicU32, Ordering};
 
 const PATH_MAX: usize = 1024;
 
@@ -51,25 +51,41 @@ unsafe extern "C" {
 }
 
 // =============================================================================
-// Domain management (thread-local for test isolation)
+// Domain management (process-wide)
 // =============================================================================
 
-thread_local! {
-	static CURRENT_DOMAIN: Cell<u32> = const { Cell::new(SYSDIR_DOMAIN_MASK_USER) };
-}
+/// The domain mask every lookup uses. Process-wide: a domain set on one
+/// thread applies to lookups on every thread.
+static CURRENT_DOMAIN: AtomicU32 = AtomicU32::new(SYSDIR_DOMAIN_MASK_USER);
 
-pub fn set_domain(domain: SearchPathDomain) {
-	let mask = match domain {
+fn domain_mask(domain: SearchPathDomain) -> u32 {
+	match domain {
 		SearchPathDomain::User => SYSDIR_DOMAIN_MASK_USER,
 		SearchPathDomain::Local => SYSDIR_DOMAIN_MASK_LOCAL,
 		SearchPathDomain::Network => SYSDIR_DOMAIN_MASK_NETWORK,
 		SearchPathDomain::System => SYSDIR_DOMAIN_MASK_SYSTEM,
-	};
-	CURRENT_DOMAIN.set(mask);
+	}
+}
+
+fn domain_from_mask(mask: u32) -> SearchPathDomain {
+	match mask {
+		SYSDIR_DOMAIN_MASK_LOCAL => SearchPathDomain::Local,
+		SYSDIR_DOMAIN_MASK_NETWORK => SearchPathDomain::Network,
+		SYSDIR_DOMAIN_MASK_SYSTEM => SearchPathDomain::System,
+		_ => SearchPathDomain::User,
+	}
+}
+
+pub fn set_domain(domain: SearchPathDomain) {
+	CURRENT_DOMAIN.store(domain_mask(domain), Ordering::Relaxed);
+}
+
+pub fn domain() -> SearchPathDomain {
+	domain_from_mask(get_domain_mask())
 }
 
 fn get_domain_mask() -> u32 {
-	CURRENT_DOMAIN.get()
+	CURRENT_DOMAIN.load(Ordering::Relaxed)
 }
 
 // =============================================================================

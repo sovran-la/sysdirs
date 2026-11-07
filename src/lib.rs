@@ -273,6 +273,10 @@ pub enum SearchPathDomain {
 /// By default, sysdirs uses the `User` domain which returns paths like `~/Library/Caches`.
 /// System utilities or admin tools may want to use `Local` or `System` domains.
 ///
+/// The setting is process-wide: it applies to every subsequent lookup on every
+/// thread until changed again. Set it once at startup rather than toggling it
+/// around individual calls.
+///
 /// This function is only available on Apple platforms.
 ///
 /// # Example
@@ -296,6 +300,20 @@ pub enum SearchPathDomain {
 ))]
 pub fn set_domain(domain: SearchPathDomain) {
 	platform::set_domain(domain);
+}
+
+/// Returns the current search path domain for Apple directory lookups.
+///
+/// This function is only available on Apple platforms.
+#[cfg(any(
+	target_os = "macos",
+	target_os = "ios",
+	target_os = "tvos",
+	target_os = "watchos",
+	target_os = "visionos"
+))]
+pub fn domain() -> SearchPathDomain {
+	platform::domain()
 }
 
 // =============================================================================
