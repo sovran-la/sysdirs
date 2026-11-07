@@ -57,6 +57,12 @@ fn lookup(func: &str, env: &[(&str, Option<&str>)]) -> Option<PathBuf> {
 		.env_clear()
 		.env("HOME", HOME)
 		.env(PROBE_VAR, func);
+	// Keep coverage instrumentation working in the child.
+	for (k, v) in std::env::vars_os() {
+		if k.to_string_lossy().starts_with("LLVM_PROFILE_FILE") {
+			cmd.env(k, v);
+		}
+	}
 	for (k, v) in env {
 		match v {
 			Some(v) => {
@@ -242,6 +248,9 @@ fn config_dir_ignores_non_utf8_override() {
 		.env("HOME", HOME)
 		.env(PROBE_VAR, "config_dir")
 		.env("XDG_CONFIG_HOME", bad);
+	if let Some(v) = std::env::var_os("LLVM_PROFILE_FILE") {
+		cmd.env("LLVM_PROFILE_FILE", v);
+	}
 	let out = cmd.output().unwrap();
 	assert!(out.status.success());
 	let stdout = String::from_utf8_lossy(&out.stdout);
