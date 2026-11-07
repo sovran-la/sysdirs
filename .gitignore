@@ -25,3 +25,6 @@ target
 .DS_Store
 
 .idea/workspace.xml
+
+# AI semantic search index
+.ai-index/
