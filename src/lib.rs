@@ -771,7 +771,8 @@ mod tests {
 			("data", data_dir()),
 			("temp", temp_dir()),
 		] {
-			let dir = dir.unwrap_or_else(|| panic!("{name}_dir returned None"));
+			assert!(dir.is_some(), "{name}_dir returned None");
+			let dir = dir.unwrap();
 			assert!(dir.is_absolute(), "{name}_dir not absolute: {dir:?}");
 		}
 	}

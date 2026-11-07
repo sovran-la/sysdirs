@@ -60,3 +60,10 @@ fn test_library_dir_none_on_linux() {
 	// library_dir is Apple-only
 	assert_eq!(sysdirs::library_dir(), None);
 }
+
+#[test]
+fn aliases_are_consistent() {
+	assert_eq!(sysdirs::config_local_dir(), sysdirs::config_dir());
+	assert_eq!(sysdirs::data_local_dir(), sysdirs::data_dir());
+	assert_eq!(sysdirs::preference_dir(), sysdirs::config_dir());
+}
