@@ -32,6 +32,17 @@ jobs:
       - name: Run tests
         run: cargo test --verbose
 
+      - name: Install cargo-llvm-cov
+        if: matrix.os != 'windows-latest'
+        uses: taiki-e/install-action@cargo-llvm-cov
+
+      # Coverage gate: lines, per platform. Windows is excluded because the
+      # probe harness is Unix-only and the Known Folders code is a thin
+      # wrapper already exercised by windows_integration.
+      - name: Coverage (fail under 99% lines)
+        if: matrix.os != 'windows-latest'
+        run: cargo llvm-cov --fail-under-lines 99
+
   lint:
     name: Lint
     runs-on: ubuntu-latest
