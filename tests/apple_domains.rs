@@ -103,6 +103,21 @@ fn user_domain_returns_home_paths() {
 }
 
 #[test]
+fn aliases_are_consistent_in_every_domain() {
+	let _g = DomainGuard::acquire();
+	for d in [
+		SearchPathDomain::User,
+		SearchPathDomain::Local,
+		SearchPathDomain::System,
+	] {
+		set_domain(d);
+		assert_eq!(sysdirs::config_local_dir(), sysdirs::config_dir(), "{d:?}");
+		assert_eq!(sysdirs::data_local_dir(), sysdirs::data_dir(), "{d:?}");
+		assert_eq!(sysdirs::data_dir(), sysdirs::config_dir(), "{d:?}");
+	}
+}
+
+#[test]
 fn local_domain_returns_root_library() {
 	let _g = DomainGuard::acquire();
 	set_domain(SearchPathDomain::Local);
@@ -131,6 +146,23 @@ fn system_domain_returns_system_library() {
 		sysdirs::library_dir(),
 		Some(PathBuf::from("/System/Library"))
 	);
+}
+
+#[test]
+fn user_only_dirs_are_none_outside_user_domain() {
+	// Documents, Desktop, Downloads etc. only exist per-user. Outside the
+	// user domain sysdir has no entry for them.
+	let _g = DomainGuard::acquire();
+	for d in [
+		SearchPathDomain::Local,
+		SearchPathDomain::Network,
+		SearchPathDomain::System,
+	] {
+		set_domain(d);
+		assert_eq!(sysdirs::document_dir(), None, "{d:?}");
+		assert_eq!(sysdirs::desktop_dir(), None, "{d:?}");
+		assert_eq!(sysdirs::download_dir(), None, "{d:?}");
+	}
 }
 
 #[test]
