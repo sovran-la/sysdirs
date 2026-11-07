@@ -180,8 +180,20 @@ mod apple;
 ))]
 use apple as platform;
 
+// Shared XDG logic for Linux and the generic Unix fallback.
 #[cfg(target_os = "linux")]
 mod linux;
+#[cfg(not(any(
+	target_os = "macos",
+	target_os = "ios",
+	target_os = "tvos",
+	target_os = "watchos",
+	target_os = "visionos",
+	target_os = "windows",
+	target_os = "android",
+	target_arch = "wasm32"
+)))]
+mod xdg;
 #[cfg(target_os = "linux")]
 use linux as platform;
 
