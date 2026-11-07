@@ -557,7 +557,7 @@ pub fn state_dir() -> Option<PathBuf> {
 ///
 /// |Platform | Value                 | Example                  |
 /// | ------- | --------------------- | ------------------------ |
-/// | Linux   | `XDG_MUSIC_DIR`       | /home/alice/Music        |
+/// | Linux   | `XDG_MUSIC_DIR` or user-dirs.dirs       | /home/alice/Music        |
 /// | macOS   | `$HOME`/Music         | /Users/Alice/Music       |
 /// | Windows | `{FOLDERID_Music}`    | C:\Users\Alice\Music     |
 /// | iOS     | `None`                |                          |
@@ -574,7 +574,7 @@ pub fn audio_dir() -> Option<PathBuf> {
 ///
 /// |Platform | Value                 | Example                  |
 /// | ------- | --------------------- | ------------------------ |
-/// | Linux   | `XDG_DESKTOP_DIR`     | /home/alice/Desktop      |
+/// | Linux   | `XDG_DESKTOP_DIR` or user-dirs.dirs     | /home/alice/Desktop      |
 /// | macOS   | `$HOME`/Desktop       | /Users/Alice/Desktop     |
 /// | Windows | `{FOLDERID_Desktop}`  | C:\Users\Alice\Desktop   |
 /// | iOS     | `None`                |                          |
@@ -591,7 +591,7 @@ pub fn desktop_dir() -> Option<PathBuf> {
 ///
 /// |Platform | Value                   | Example                    |
 /// | ------- | ----------------------- | -------------------------- |
-/// | Linux   | `XDG_DOCUMENTS_DIR`     | /home/alice/Documents      |
+/// | Linux   | `XDG_DOCUMENTS_DIR` or user-dirs.dirs     | /home/alice/Documents      |
 /// | macOS   | `$HOME`/Documents       | /Users/Alice/Documents     |
 /// | Windows | `{FOLDERID_Documents}`  | C:\Users\Alice\Documents   |
 /// | iOS     | sandbox/Documents       | &lt;sandbox&gt;/Documents  |
@@ -608,7 +608,7 @@ pub fn document_dir() -> Option<PathBuf> {
 ///
 /// |Platform | Value                   | Example                    |
 /// | ------- | ----------------------- | -------------------------- |
-/// | Linux   | `XDG_DOWNLOAD_DIR`      | /home/alice/Downloads      |
+/// | Linux   | `XDG_DOWNLOAD_DIR` or user-dirs.dirs      | /home/alice/Downloads      |
 /// | macOS   | `$HOME`/Downloads       | /Users/Alice/Downloads     |
 /// | Windows | `{FOLDERID_Downloads}`  | C:\Users\Alice\Downloads   |
 /// | iOS     | `None`                  |                            |
@@ -642,7 +642,7 @@ pub fn font_dir() -> Option<PathBuf> {
 ///
 /// |Platform | Value                   | Example                    |
 /// | ------- | ----------------------- | -------------------------- |
-/// | Linux   | `XDG_PICTURES_DIR`      | /home/alice/Pictures       |
+/// | Linux   | `XDG_PICTURES_DIR` or user-dirs.dirs      | /home/alice/Pictures       |
 /// | macOS   | `$HOME`/Pictures        | /Users/Alice/Pictures      |
 /// | Windows | `{FOLDERID_Pictures}`   | C:\Users\Alice\Pictures    |
 /// | iOS     | `None`                  |                            |
@@ -659,7 +659,7 @@ pub fn picture_dir() -> Option<PathBuf> {
 ///
 /// |Platform | Value                   | Example                    |
 /// | ------- | ----------------------- | -------------------------- |
-/// | Linux   | `XDG_PUBLICSHARE_DIR`   | /home/alice/Public         |
+/// | Linux   | `XDG_PUBLICSHARE_DIR` or user-dirs.dirs   | /home/alice/Public         |
 /// | macOS   | `$HOME`/Public          | /Users/Alice/Public        |
 /// | Windows | `{FOLDERID_Public}`     | C:\Users\Public            |
 /// | iOS     | `None`                  |                            |
@@ -676,7 +676,7 @@ pub fn public_dir() -> Option<PathBuf> {
 ///
 /// |Platform | Value                   | Example                              |
 /// | ------- | ----------------------- | ------------------------------------ |
-/// | Linux   | `XDG_TEMPLATES_DIR`     | /home/alice/Templates                |
+/// | Linux   | `XDG_TEMPLATES_DIR` or user-dirs.dirs     | /home/alice/Templates                |
 /// | macOS   | `None`                  |                                      |
 /// | Windows | `{FOLDERID_Templates}`  | C:\Users\Alice\AppData\Roaming\Microsoft\Windows\Templates |
 /// | iOS     | `None`                  |                                      |
@@ -693,7 +693,7 @@ pub fn template_dir() -> Option<PathBuf> {
 ///
 /// |Platform | Value                 | Example                  |
 /// | ------- | --------------------- | ------------------------ |
-/// | Linux   | `XDG_VIDEOS_DIR`      | /home/alice/Videos       |
+/// | Linux   | `XDG_VIDEOS_DIR` or user-dirs.dirs      | /home/alice/Videos       |
 /// | macOS   | `$HOME`/Movies        | /Users/Alice/Movies      |
 /// | Windows | `{FOLDERID_Videos}`   | C:\Users\Alice\Videos    |
 /// | iOS     | `None`                |                          |

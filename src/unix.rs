@@ -1,7 +1,7 @@
 //! Unix fallback platform implementation (FreeBSD, etc.)
 //!
-//! Uses XDG Base Directory conventions. User directories (music, desktop, ...)
-//! are not resolved on generic Unix. All resolution logic lives in [`crate::xdg`].
+//! Uses XDG Base Directory and XDG User Directory conventions, same as Linux.
+//! All resolution logic lives in [`crate::xdg`].
 
 use crate::xdg;
 use std::path::PathBuf;
@@ -51,19 +51,19 @@ pub fn state_dir() -> Option<PathBuf> {
 }
 
 pub fn audio_dir() -> Option<PathBuf> {
-	None
+	xdg::user_dir("XDG_MUSIC_DIR")
 }
 
 pub fn desktop_dir() -> Option<PathBuf> {
-	None
+	xdg::user_dir("XDG_DESKTOP_DIR")
 }
 
 pub fn document_dir() -> Option<PathBuf> {
-	None
+	xdg::user_dir("XDG_DOCUMENTS_DIR")
 }
 
 pub fn download_dir() -> Option<PathBuf> {
-	None
+	xdg::user_dir("XDG_DOWNLOAD_DIR")
 }
 
 pub fn font_dir() -> Option<PathBuf> {
@@ -71,19 +71,19 @@ pub fn font_dir() -> Option<PathBuf> {
 }
 
 pub fn picture_dir() -> Option<PathBuf> {
-	None
+	xdg::user_dir("XDG_PICTURES_DIR")
 }
 
 pub fn public_dir() -> Option<PathBuf> {
-	None
+	xdg::user_dir("XDG_PUBLICSHARE_DIR")
 }
 
 pub fn template_dir() -> Option<PathBuf> {
-	None
+	xdg::user_dir("XDG_TEMPLATES_DIR")
 }
 
 pub fn video_dir() -> Option<PathBuf> {
-	None
+	xdg::user_dir("XDG_VIDEOS_DIR")
 }
 
 // =============================================================================

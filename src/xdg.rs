@@ -59,6 +59,56 @@ pub(crate) fn resolve_temp_dir(env_value: Option<&str>, home: Option<&Path>) -> 
 }
 
 // =============================================================================
+// XDG user directories (~/.config/user-dirs.dirs)
+// =============================================================================
+
+/// Parse one `user-dirs.dirs` file and return the value for `key`
+/// (e.g. `XDG_MUSIC_DIR`), already validated and expanded.
+///
+/// The format is a tiny subset of shell: `KEY="$HOME/relative"` or
+/// `KEY="/absolute"`, one per line, `#` comments. Anything else is ignored.
+/// Per the xdg-user-dirs docs a directory set to `$HOME` itself is disabled,
+/// so that returns `None`. The last matching line wins, as in the shell.
+pub(crate) fn parse_user_dirs(contents: &str, key: &str, home: &Path) -> Option<PathBuf> {
+	let mut found = None;
+	for line in contents.lines() {
+		let line = line.trim();
+		if line.starts_with('#') {
+			continue;
+		}
+		let Some((k, v)) = line.split_once('=') else {
+			continue;
+		};
+		if k.trim() != key {
+			continue;
+		}
+		let v = v.trim();
+		let Some(v) = v.strip_prefix('"').and_then(|v| v.strip_suffix('"')) else {
+			continue;
+		};
+		found = Some(v);
+	}
+
+	let raw = found?;
+	let path = if let Some(rest) = raw.strip_prefix("$HOME/") {
+		let rest = rest.trim_end_matches('/');
+		if rest.is_empty() {
+			return None; // "$HOME/" means disabled
+		}
+		home.join(rest)
+	} else if raw == "$HOME" {
+		return None; // disabled
+	} else {
+		PathBuf::from(raw)
+	};
+
+	if !path.is_absolute() || path == home {
+		return None;
+	}
+	Some(path)
+}
+
+// =============================================================================
 // Env var wrappers
 // =============================================================================
 
@@ -80,6 +130,18 @@ pub(crate) fn base_dir(env_var: &str, default_suffix: &str) -> Option<PathBuf> {
 pub(crate) fn optional_dir(env_var: &str) -> Option<PathBuf> {
 	let home = home();
 	resolve_optional_dir(env(env_var).as_deref(), home.as_deref())
+}
+
+/// A user directory such as `XDG_MUSIC_DIR`: env var, then `user-dirs.dirs`.
+pub(crate) fn user_dir(env_var: &str) -> Option<PathBuf> {
+	let home = home();
+	let env_value = env(env_var);
+	if let Some(p) = resolve_optional_dir(env_value.as_deref(), home.as_deref()) {
+		return Some(p);
+	}
+	let config_home = base_dir("XDG_CONFIG_HOME", ".config")?;
+	let contents = std::fs::read_to_string(config_home.join("user-dirs.dirs")).ok()?;
+	parse_user_dirs(&contents, env_var, home.as_deref()?)
 }
 
 pub(crate) fn temp_dir() -> Option<PathBuf> {
@@ -419,6 +481,204 @@ mod tests {
 		assert_eq!(
 			resolve_temp_dir(Some("~/tmp"), None),
 			Some(PathBuf::from("/tmp"))
+		);
+	}
+
+	// -------------------------------------------------------------------------
+	// parse_user_dirs
+	// -------------------------------------------------------------------------
+
+	const USER_DIRS: &str = r#"# This file is written by xdg-user-dirs-update
+# If you want to change or add directories, just edit the line you're
+# interested in. All local changes will be retained on the next run.
+#
+XDG_DESKTOP_DIR="$HOME/Desktop"
+XDG_DOWNLOAD_DIR="$HOME/Downloads"
+XDG_TEMPLATES_DIR="$HOME/Templates"
+XDG_PUBLICSHARE_DIR="$HOME/Public"
+XDG_DOCUMENTS_DIR="$HOME/Documents"
+XDG_MUSIC_DIR="$HOME/Music"
+XDG_PICTURES_DIR="/mnt/photos"
+XDG_VIDEOS_DIR="$HOME/Videos"
+"#;
+
+	fn h() -> &'static Path {
+		Path::new(HOME)
+	}
+
+	#[test]
+	fn user_dirs_home_relative_entry() {
+		assert_eq!(
+			parse_user_dirs(USER_DIRS, "XDG_MUSIC_DIR", h()),
+			Some(PathBuf::from("/home/testuser/Music"))
+		);
+	}
+
+	#[test]
+	fn user_dirs_absolute_entry() {
+		assert_eq!(
+			parse_user_dirs(USER_DIRS, "XDG_PICTURES_DIR", h()),
+			Some(PathBuf::from("/mnt/photos"))
+		);
+	}
+
+	#[test]
+	fn user_dirs_every_standard_key() {
+		for (key, expected) in [
+			("XDG_DESKTOP_DIR", "/home/testuser/Desktop"),
+			("XDG_DOWNLOAD_DIR", "/home/testuser/Downloads"),
+			("XDG_TEMPLATES_DIR", "/home/testuser/Templates"),
+			("XDG_PUBLICSHARE_DIR", "/home/testuser/Public"),
+			("XDG_DOCUMENTS_DIR", "/home/testuser/Documents"),
+			("XDG_VIDEOS_DIR", "/home/testuser/Videos"),
+		] {
+			assert_eq!(
+				parse_user_dirs(USER_DIRS, key, h()),
+				Some(PathBuf::from(expected)),
+				"{key}"
+			);
+		}
+	}
+
+	#[test]
+	fn user_dirs_missing_key() {
+		assert_eq!(parse_user_dirs(USER_DIRS, "XDG_NOPE_DIR", h()), None);
+	}
+
+	#[test]
+	fn user_dirs_empty_file() {
+		assert_eq!(parse_user_dirs("", "XDG_MUSIC_DIR", h()), None);
+	}
+
+	#[test]
+	fn user_dirs_comments_only() {
+		assert_eq!(
+			parse_user_dirs(
+				"# nothing\n#XDG_MUSIC_DIR=\"$HOME/Music\"\n",
+				"XDG_MUSIC_DIR",
+				h()
+			),
+			None
+		);
+	}
+
+	#[test]
+	fn user_dirs_last_line_wins() {
+		let f = "XDG_MUSIC_DIR=\"$HOME/Old\"\nXDG_MUSIC_DIR=\"$HOME/New\"\n";
+		assert_eq!(
+			parse_user_dirs(f, "XDG_MUSIC_DIR", h()),
+			Some(PathBuf::from("/home/testuser/New"))
+		);
+	}
+
+	#[test]
+	fn user_dirs_disabled_when_set_to_home() {
+		assert_eq!(
+			parse_user_dirs("XDG_DESKTOP_DIR=\"$HOME/\"\n", "XDG_DESKTOP_DIR", h()),
+			None
+		);
+		assert_eq!(
+			parse_user_dirs("XDG_DESKTOP_DIR=\"$HOME\"\n", "XDG_DESKTOP_DIR", h()),
+			None
+		);
+		assert_eq!(
+			parse_user_dirs(
+				"XDG_DESKTOP_DIR=\"/home/testuser\"\n",
+				"XDG_DESKTOP_DIR",
+				h()
+			),
+			None
+		);
+		assert_eq!(
+			parse_user_dirs(
+				"XDG_DESKTOP_DIR=\"/home/testuser/\"\n",
+				"XDG_DESKTOP_DIR",
+				h()
+			),
+			None
+		);
+	}
+
+	#[test]
+	fn user_dirs_trailing_slash_is_stripped() {
+		assert_eq!(
+			parse_user_dirs("XDG_MUSIC_DIR=\"$HOME/Music/\"\n", "XDG_MUSIC_DIR", h()),
+			Some(PathBuf::from("/home/testuser/Music"))
+		);
+	}
+
+	#[test]
+	fn user_dirs_unquoted_value_is_ignored() {
+		assert_eq!(
+			parse_user_dirs("XDG_MUSIC_DIR=$HOME/Music\n", "XDG_MUSIC_DIR", h()),
+			None
+		);
+	}
+
+	#[test]
+	fn user_dirs_relative_value_is_ignored() {
+		assert_eq!(
+			parse_user_dirs("XDG_MUSIC_DIR=\"Music\"\n", "XDG_MUSIC_DIR", h()),
+			None
+		);
+		assert_eq!(
+			parse_user_dirs("XDG_MUSIC_DIR=\"../Music\"\n", "XDG_MUSIC_DIR", h()),
+			None
+		);
+	}
+
+	#[test]
+	fn user_dirs_other_variables_not_expanded() {
+		// Only $HOME is in the spec; anything else is not a valid absolute path.
+		assert_eq!(
+			parse_user_dirs(
+				"XDG_MUSIC_DIR=\"$XDG_DATA_HOME/music\"\n",
+				"XDG_MUSIC_DIR",
+				h()
+			),
+			None
+		);
+		assert_eq!(
+			parse_user_dirs("XDG_MUSIC_DIR=\"~/Music\"\n", "XDG_MUSIC_DIR", h()),
+			None
+		);
+	}
+
+	#[test]
+	fn user_dirs_tolerates_whitespace_and_crlf() {
+		let f = "  XDG_MUSIC_DIR = \"$HOME/Music\"  \r\n";
+		assert_eq!(
+			parse_user_dirs(f, "XDG_MUSIC_DIR", h()),
+			Some(PathBuf::from("/home/testuser/Music"))
+		);
+	}
+
+	#[test]
+	fn user_dirs_key_must_match_exactly() {
+		assert_eq!(
+			parse_user_dirs("XDG_MUSIC_DIR_EXTRA=\"/x\"\n", "XDG_MUSIC_DIR", h()),
+			None
+		);
+		assert_eq!(
+			parse_user_dirs("xdg_music_dir=\"/x\"\n", "XDG_MUSIC_DIR", h()),
+			None
+		);
+	}
+
+	#[test]
+	fn user_dirs_spaces_in_path() {
+		assert_eq!(
+			parse_user_dirs("XDG_MUSIC_DIR=\"$HOME/My Music\"\n", "XDG_MUSIC_DIR", h()),
+			Some(PathBuf::from("/home/testuser/My Music"))
+		);
+	}
+
+	#[test]
+	fn user_dirs_garbage_lines_are_skipped() {
+		let f = "this is not a line\n=\n=\"x\"\nXDG_MUSIC_DIR=\nXDG_MUSIC_DIR=\"\"\nXDG_MUSIC_DIR=\"/ok\"\n";
+		assert_eq!(
+			parse_user_dirs(f, "XDG_MUSIC_DIR", h()),
+			Some(PathBuf::from("/ok"))
 		);
 	}
 }
