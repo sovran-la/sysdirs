@@ -4,13 +4,16 @@
 
 use crate::SearchPathDomain;
 use std::cell::Cell;
-use std::ffi::CStr;
+use std::ffi::{CStr, c_char};
 use std::path::PathBuf;
 
 const PATH_MAX: usize = 1024;
 
+// Only macOS exposes the user-media directories; on iOS and friends those
+// variants are declared for parity with the C enum but never constructed.
 #[repr(u32)]
 #[derive(Debug, Copy, Clone)]
+#[cfg_attr(not(target_os = "macos"), allow(dead_code))]
 enum SysdirDirectory {
 	Library = 5,
 	Document = 9,
@@ -43,7 +46,7 @@ unsafe extern "C" {
 
 	fn sysdir_get_next_search_path_enumeration(
 		state: SysdirState,
-		path: *mut std::ffi::c_char,
+		path: *mut c_char,
 	) -> SysdirState;
 }
 
@@ -75,7 +78,7 @@ fn get_domain_mask() -> u32 {
 
 /// Get the first path for a directory type in the current domain.
 fn sysdir_path(dir: SysdirDirectory) -> Option<PathBuf> {
-	let mut path_buf = [0i8; PATH_MAX];
+	let mut path_buf = [0 as c_char; PATH_MAX];
 	let domain = get_domain_mask();
 
 	unsafe {
@@ -240,8 +243,39 @@ pub fn video_dir() -> Option<PathBuf> {
 // sysdirs extensions
 // =============================================================================
 
+/// The per-user temp directory.
+///
+/// `$TMPDIR` is honored when set to an absolute path. When it is absent, which
+/// is normal for launchd agents, XPC services and sandboxed helpers, we ask the
+/// system directly via `confstr(_CS_DARWIN_USER_TEMP_DIR)`, which is where the
+/// login shell gets `TMPDIR` from in the first place. `/tmp` is the last resort.
 pub fn temp_dir() -> Option<PathBuf> {
-	std::env::var_os("TMPDIR").map(PathBuf::from)
+	std::env::var_os("TMPDIR")
+		.map(PathBuf::from)
+		.filter(|p| p.is_absolute())
+		.or_else(darwin_user_temp_dir)
+		.or_else(|| Some(PathBuf::from("/tmp")))
+}
+
+const CS_DARWIN_USER_TEMP_DIR: std::ffi::c_int = 65537;
+
+unsafe extern "C" {
+	fn confstr(name: std::ffi::c_int, buf: *mut c_char, len: usize) -> usize;
+}
+
+/// `confstr(_CS_DARWIN_USER_TEMP_DIR)`, or `None` if the call fails or
+/// returns a value that doesn't fit `PATH_MAX`.
+fn darwin_user_temp_dir() -> Option<PathBuf> {
+	let mut buf = [0 as c_char; PATH_MAX];
+	// Safety: buf is a valid, writable, PATH_MAX-byte buffer and confstr
+	// NUL-terminates within `len` on success.
+	let needed = unsafe { confstr(CS_DARWIN_USER_TEMP_DIR, buf.as_mut_ptr(), PATH_MAX) };
+	if needed == 0 || needed > PATH_MAX {
+		return None;
+	}
+	let s = unsafe { CStr::from_ptr(buf.as_ptr()) }.to_str().ok()?;
+	let path = PathBuf::from(s);
+	path.is_absolute().then_some(path)
 }
 
 pub fn library_dir() -> Option<PathBuf> {
