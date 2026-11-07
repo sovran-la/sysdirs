@@ -718,7 +718,7 @@ pub fn video_dir() -> Option<PathBuf> {
 /// | ------- | ---------------------------- | ---------------------------- |
 /// | Linux   | `$TMPDIR` or /tmp            | /tmp                         |
 /// | macOS   | `$TMPDIR`                    | /var/folders/.../T/          |
-/// | Windows | `{FOLDERID_LocalAppData}`\Temp | C:\Users\Alice\AppData\Local\Temp |
+/// | Windows | `%TEMP%`, `%TMP%`, or `{FOLDERID_LocalAppData}`\Temp | C:\Users\Alice\AppData\Local\Temp |
 /// | iOS     | sandbox/tmp                  | &lt;sandbox&gt;/tmp          |
 /// | Android | files/tmp (after init)       | /data/data/com.example/files/tmp |
 /// | WASM    | `None`                       |                              |

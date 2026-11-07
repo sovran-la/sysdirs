@@ -220,14 +220,14 @@ These functions are not present in the `dirs` crate:
 
 | Feature | Description |
 |---------|-------------|
-| (default) | Zero dependencies, manual Android init |
+| (default) | No dependencies on Unix platforms (`windows-sys` on Windows), manual Android init |
 | `android-auto` | Auto-detect Android paths via `ndk-context` |
 
 ## Design Goals
 
 * **Mobile-first**: iOS and Android are first-class citizens, not afterthoughts
 * **Drop-in replacement**: Same API as `dirs` for easy migration
-* **No dependencies**: Pure Rust, no C dependencies (except platform APIs)
+* **Minimal dependencies**: Pure Rust over platform APIs. Nothing on Unix platforms; `windows-sys` on Windows for the Known Folders API so redirected folders (OneDrive, group policy) resolve correctly
 * **Composable**: `PathExt` trait adds chainable `.join()` and `.ensure()` for common workflows
 
 ## License

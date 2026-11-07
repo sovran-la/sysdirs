@@ -21,10 +21,16 @@ android-auto = ["ndk-context", "jni"]
 release-tool = ["dep:toml_edit"]
 
 [dependencies]
-# No runtime dependencies by default - pure Rust!
+# No runtime dependencies on Unix platforms. Windows needs windows-sys for
+# the Known Folders API; Android auto-detection is opt-in.
 
 # Optional: only needed for release tool
 toml_edit = { version = "0.22", optional = true }
+
+# Known Folders (SHGetKnownFolderPath) so redirected folders (OneDrive etc.)
+# resolve correctly instead of guessing from USERPROFILE.
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_System_Com", "Win32_UI_Shell"] }
 
 # Optional Android auto-detection (for pure Rust Android apps)
 [target.'cfg(target_os = "android")'.dependencies]
