@@ -39,6 +39,11 @@ fn probe() {
 		"runtime_dir" => sysdirs::runtime_dir(),
 		"audio_dir" => sysdirs::audio_dir(),
 		"desktop_dir" => sysdirs::desktop_dir(),
+		"document_dir" => sysdirs::document_dir(),
+		"download_dir" => sysdirs::download_dir(),
+		"picture_dir" => sysdirs::picture_dir(),
+		"public_dir" => sysdirs::public_dir(),
+		"template_dir" => sysdirs::template_dir(),
 		"video_dir" => sysdirs::video_dir(),
 		"font_dir" => sysdirs::font_dir(),
 		"temp_dir" => sysdirs::temp_dir(),
@@ -430,6 +435,33 @@ fn user_dir_file_needs_home_for_home_relative_entries() {
 		),
 		None
 	);
+}
+
+#[test]
+fn every_user_dir_reads_its_own_key() {
+	let cfg = ConfigHome::with_user_dirs(
+		"XDG_DESKTOP_DIR=\"$HOME/Desktop\"\n\
+		 XDG_DOWNLOAD_DIR=\"$HOME/Downloads\"\n\
+		 XDG_TEMPLATES_DIR=\"$HOME/Templates\"\n\
+		 XDG_PUBLICSHARE_DIR=\"$HOME/Public\"\n\
+		 XDG_DOCUMENTS_DIR=\"$HOME/Documents\"\n\
+		 XDG_MUSIC_DIR=\"$HOME/Music\"\n\
+		 XDG_PICTURES_DIR=\"/mnt/photos\"\n\
+		 XDG_VIDEOS_DIR=\"$HOME/Videos\"\n",
+	);
+	let env = [("XDG_CONFIG_HOME", Some(cfg.path()))];
+	for (func, expected) in [
+		("desktop_dir", "/home/probe/Desktop"),
+		("download_dir", "/home/probe/Downloads"),
+		("template_dir", "/home/probe/Templates"),
+		("public_dir", "/home/probe/Public"),
+		("document_dir", "/home/probe/Documents"),
+		("audio_dir", "/home/probe/Music"),
+		("picture_dir", "/mnt/photos"),
+		("video_dir", "/home/probe/Videos"),
+	] {
+		assert_eq!(lookup(func, &env), p(expected), "{func}");
+	}
 }
 
 #[test]
