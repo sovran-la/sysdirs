@@ -11,8 +11,8 @@ Security fixes are released for the latest minor version only.
 
 | Version | Supported |
 |---------|-----------|
-| 0.9.x   | Yes       |
-| < 0.9   | No        |
+| 0.10.x  | Yes       |
+| < 0.10  | No        |
 
 ## Reporting a Vulnerability
 
