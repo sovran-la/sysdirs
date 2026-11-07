@@ -302,10 +302,21 @@ pub fn set_domain(domain: SearchPathDomain) {
 // Android Initialization
 // =============================================================================
 
+/// Error returned by [`init_android()`] and [`init_android_with_cache()`].
+///
+/// This type is only available on Android.
+#[cfg(target_os = "android")]
+pub use platform::AndroidInitError;
+
 /// Initialize Android-specific paths.
 ///
 /// Must be called once at app startup on Android before using any directory functions.
-/// The path should be obtained from `Context.getFilesDir()` in Kotlin/Java.
+/// The path should be obtained from `Context.getFilesDir()` in Kotlin/Java and must be
+/// absolute. The cache directory is derived as `<files_dir>/cache`.
+///
+/// Initialization is process-wide and happens once. A second call returns
+/// [`AndroidInitError::AlreadyInitialized`] and leaves the first values in place.
+/// An empty or relative path returns [`AndroidInitError::InvalidPath`] and changes nothing.
 ///
 /// This function is only available on Android.
 ///
@@ -313,18 +324,20 @@ pub fn set_domain(domain: SearchPathDomain) {
 ///
 /// ```rust,ignore
 /// // Called from JNI at app startup
-/// sysdirs::init_android("/data/data/com.example.app/files");
+/// sysdirs::init_android("/data/data/com.example.app/files")?;
 /// ```
 #[cfg(target_os = "android")]
-pub fn init_android(files_dir: &str) {
-	platform::init_android(files_dir);
+pub fn init_android(files_dir: &str) -> Result<(), AndroidInitError> {
+	platform::init_android(files_dir)
 }
 
 /// Initialize Android-specific paths with separate directories.
 ///
 /// Like [`init_android()`], but allows specifying both the files directory
 /// and the cache directory separately. Use this if your app needs the actual
-/// cache directory from `Context.getCacheDir()`.
+/// cache directory from `Context.getCacheDir()`. Both paths must be absolute.
+///
+/// Same once-only semantics as [`init_android()`].
 ///
 /// This function is only available on Android.
 ///
@@ -334,11 +347,11 @@ pub fn init_android(files_dir: &str) {
 /// sysdirs::init_android_with_cache(
 ///     "/data/data/com.example.app/files",
 ///     "/data/data/com.example.app/cache"
-/// );
+/// )?;
 /// ```
 #[cfg(target_os = "android")]
-pub fn init_android_with_cache(files_dir: &str, cache_dir: &str) {
-	platform::init_android_with_cache(files_dir, cache_dir);
+pub fn init_android_with_cache(files_dir: &str, cache_dir: &str) -> Result<(), AndroidInitError> {
+	platform::init_android_with_cache(files_dir, cache_dir)
 }
 
 // =============================================================================
@@ -718,43 +731,62 @@ pub fn library_dir() -> Option<PathBuf> {
 // Tests
 // =============================================================================
 
-#[cfg(test)]
+/// Desktop platforms: the base dirs must resolve on any sane machine.
+#[cfg(all(test, not(any(target_arch = "wasm32", target_os = "android"))))]
 mod tests {
 	use super::*;
 
 	#[test]
-	fn test_home_dir() {
-		// On most platforms we should get something
-		#[cfg(not(target_arch = "wasm32"))]
+	fn base_dirs_resolve() {
 		assert!(home_dir().is_some());
-	}
-
-	#[test]
-	fn test_cache_dir() {
-		#[cfg(not(any(target_arch = "wasm32", target_os = "android")))]
 		assert!(cache_dir().is_some());
-	}
-
-	#[test]
-	fn test_config_dir() {
-		#[cfg(not(any(target_arch = "wasm32", target_os = "android")))]
 		assert!(config_dir().is_some());
-	}
-
-	#[test]
-	fn test_data_dir() {
-		#[cfg(not(any(target_arch = "wasm32", target_os = "android")))]
 		assert!(data_dir().is_some());
 	}
 
 	#[test]
-	#[cfg(target_os = "android")]
-	fn test_android_init() {
-		init_android("/data/data/com.test/files");
+	fn base_dirs_are_absolute() {
+		for (name, dir) in [
+			("home", home_dir()),
+			("cache", cache_dir()),
+			("config", config_dir()),
+			("data", data_dir()),
+			("temp", temp_dir()),
+		] {
+			let dir = dir.unwrap_or_else(|| panic!("{name}_dir returned None"));
+			assert!(dir.is_absolute(), "{name}_dir not absolute: {dir:?}");
+		}
+	}
+}
+
+/// Android: nothing resolves until init, and init only happens once per process.
+#[cfg(all(test, target_os = "android"))]
+mod tests {
+	use super::*;
+
+	#[test]
+	fn android_init_then_lookup() {
+		assert_eq!(home_dir(), None);
+		init_android("/data/data/com.test/files").unwrap();
 		assert_eq!(home_dir(), Some(PathBuf::from("/data/data/com.test/files")));
 		assert_eq!(
 			cache_dir(),
 			Some(PathBuf::from("/data/data/com.test/files/cache"))
 		);
+	}
+}
+
+/// WASM: there is no filesystem, so every lookup is None.
+#[cfg(all(test, target_arch = "wasm32"))]
+mod tests {
+	use super::*;
+
+	#[test]
+	fn everything_is_none() {
+		assert_eq!(home_dir(), None);
+		assert_eq!(cache_dir(), None);
+		assert_eq!(config_dir(), None);
+		assert_eq!(data_dir(), None);
+		assert_eq!(temp_dir(), None);
 	}
 }

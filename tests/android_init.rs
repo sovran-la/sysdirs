@@ -1,80 +1,105 @@
 //! Tests for Android initialization.
 //!
-//! Verifies that init_android() and init_android_with_cache() set paths correctly.
+//! Initialization is process-wide and happens once, so every assertion that
+//! depends on state lives in a single test function with a fixed order. Two
+//! `#[test]`s that both call `init_android` would race for the `OnceLock`,
+//! and whichever lost would fail nondeterministically.
 
 #![cfg(target_os = "android")]
 
 use std::path::PathBuf;
+use sysdirs::AndroidInitError;
+
+const FILES: &str = "/data/data/com.example.app/files";
 
 #[test]
-fn test_init_android_sets_paths() {
-	sysdirs::init_android("/data/data/com.example.app/files");
+fn init_lifecycle() {
+	// --- Before init: nothing is available ---------------------------------
+	assert_eq!(sysdirs::home_dir(), None);
+	assert_eq!(sysdirs::cache_dir(), None);
+	assert_eq!(sysdirs::config_dir(), None);
+	assert_eq!(sysdirs::data_dir(), None);
+	assert_eq!(sysdirs::temp_dir(), None);
 
+	// --- Invalid paths are rejected and leave the state untouched ----------
+	assert_eq!(
+		sysdirs::init_android(""),
+		Err(AndroidInitError::InvalidPath)
+	);
+	assert_eq!(
+		sysdirs::init_android("files"),
+		Err(AndroidInitError::InvalidPath)
+	);
+	assert_eq!(
+		sysdirs::init_android_with_cache(FILES, "cache"),
+		Err(AndroidInitError::InvalidPath)
+	);
+	assert_eq!(
+		sysdirs::init_android_with_cache("", "/data/data/com.example.app/cache"),
+		Err(AndroidInitError::InvalidPath)
+	);
 	assert_eq!(
 		sysdirs::home_dir(),
-		Some(PathBuf::from("/data/data/com.example.app/files"))
+		None,
+		"rejected init must not set paths"
 	);
-	assert_eq!(
-		sysdirs::config_dir(),
-		Some(PathBuf::from("/data/data/com.example.app/files"))
-	);
-	assert_eq!(
-		sysdirs::data_dir(),
-		Some(PathBuf::from("/data/data/com.example.app/files"))
-	);
-	// Default cache is files_dir + "/cache"
 	assert_eq!(
 		sysdirs::cache_dir(),
-		Some(PathBuf::from("/data/data/com.example.app/files/cache"))
-	);
-}
-
-#[test]
-fn test_init_android_with_cache_sets_separate_cache() {
-	sysdirs::init_android_with_cache(
-		"/data/data/com.example.app/files",
-		"/data/data/com.example.app/cache",
+		None,
+		"rejected init must not set paths"
 	);
 
+	// --- First valid init wins ---------------------------------------------
+	assert_eq!(sysdirs::init_android(FILES), Ok(()));
+
+	let files = PathBuf::from(FILES);
+	assert_eq!(sysdirs::home_dir(), Some(files.clone()));
+	assert_eq!(sysdirs::config_dir(), Some(files.clone()));
+	assert_eq!(sysdirs::config_local_dir(), Some(files.clone()));
+	assert_eq!(sysdirs::data_dir(), Some(files.clone()));
+	assert_eq!(sysdirs::data_local_dir(), Some(files.clone()));
+	assert_eq!(sysdirs::preference_dir(), Some(files.clone()));
+	assert_eq!(sysdirs::cache_dir(), Some(files.join("cache")));
+	assert_eq!(sysdirs::temp_dir(), Some(files.join("tmp")));
+
+	// --- Second init is refused and changes nothing ------------------------
 	assert_eq!(
-		sysdirs::home_dir(),
-		Some(PathBuf::from("/data/data/com.example.app/files"))
+		sysdirs::init_android("/data/data/other.app/files"),
+		Err(AndroidInitError::AlreadyInitialized)
 	);
-	// Cache should be the explicit path, not derived
 	assert_eq!(
-		sysdirs::cache_dir(),
-		Some(PathBuf::from("/data/data/com.example.app/cache"))
+		sysdirs::init_android_with_cache(
+			"/data/data/other.app/files",
+			"/data/data/other.app/cache"
+		),
+		Err(AndroidInitError::AlreadyInitialized)
 	);
-}
+	assert_eq!(sysdirs::home_dir(), Some(files.clone()));
+	assert_eq!(sysdirs::cache_dir(), Some(files.join("cache")));
 
-#[test]
-fn test_temp_dir_derived_from_files() {
-	sysdirs::init_android("/data/data/com.example.app/files");
+	// --- Lookups are stable across repeated calls --------------------------
+	for _ in 0..3 {
+		assert_eq!(sysdirs::data_dir(), Some(files.clone()));
+	}
 
-	assert_eq!(
-		sysdirs::temp_dir(),
-		Some(PathBuf::from("/data/data/com.example.app/files/tmp"))
-	);
-}
-
-#[test]
-fn test_user_dirs_return_none_on_android() {
-	sysdirs::init_android("/data/data/com.example.app/files");
-
-	// Android doesn't expose user directories to native code
+	// --- Things Android never exposes to native code -----------------------
+	assert_eq!(sysdirs::executable_dir(), None);
+	assert_eq!(sysdirs::runtime_dir(), None);
+	assert_eq!(sysdirs::state_dir(), None);
 	assert_eq!(sysdirs::audio_dir(), None);
 	assert_eq!(sysdirs::desktop_dir(), None);
 	assert_eq!(sysdirs::document_dir(), None);
 	assert_eq!(sysdirs::download_dir(), None);
+	assert_eq!(sysdirs::font_dir(), None);
 	assert_eq!(sysdirs::picture_dir(), None);
 	assert_eq!(sysdirs::public_dir(), None);
+	assert_eq!(sysdirs::template_dir(), None);
 	assert_eq!(sysdirs::video_dir(), None);
+	assert_eq!(sysdirs::library_dir(), None);
 }
 
 #[test]
-fn test_library_dir_none_on_android() {
-	sysdirs::init_android("/data/data/com.example.app/files");
-
-	// Library is an Apple concept
-	assert_eq!(sysdirs::library_dir(), None);
+fn error_is_std_error() {
+	fn assert_error<E: std::error::Error + Send + Sync + 'static>() {}
+	assert_error::<AndroidInitError>();
 }

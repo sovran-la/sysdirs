@@ -75,9 +75,14 @@ fn test_real_dirs_with_pathext() {
 	// Test with actual sysdirs functions
 	let path = sysdirs::cache_dir().join("test-app");
 
-	#[cfg(not(any(target_arch = "wasm32", target_os = "android")))]
-	assert!(path.is_some());
+	// Android and WASM have no cache dir until initialized / ever, so join
+	// propagates the None.
+	#[cfg(any(target_arch = "wasm32", target_os = "android"))]
+	assert!(path.is_none());
 
 	#[cfg(not(any(target_arch = "wasm32", target_os = "android")))]
-	assert!(path.unwrap().ends_with("test-app"));
+	{
+		assert!(path.is_some());
+		assert!(path.unwrap().ends_with("test-app"));
+	}
 }

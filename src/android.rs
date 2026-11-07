@@ -5,9 +5,38 @@
 //!
 //! 1. Manual init via `init_android()` - for Kotlin/Java apps embedding Rust
 //! 2. Auto-detection via ndk-context - for pure Rust Android apps (requires `android-auto` feature)
+//!
+//! Both routes populate the same process-wide `OnceLock`s, so initialization
+//! happens exactly once and later lookups are plain clones.
 
-use std::path::PathBuf;
+use std::fmt;
+use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
+
+// =============================================================================
+// Errors
+// =============================================================================
+
+/// Why an `init_android*` call did not take effect.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AndroidInitError {
+	/// A path was empty or not absolute. Nothing was changed.
+	InvalidPath,
+	/// Paths were already set by an earlier call (or by `android-auto`
+	/// detection). The earlier values are kept.
+	AlreadyInitialized,
+}
+
+impl fmt::Display for AndroidInitError {
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+		match self {
+			Self::InvalidPath => f.write_str("android path must be absolute and non-empty"),
+			Self::AlreadyInitialized => f.write_str("android paths are already initialized"),
+		}
+	}
+}
+
+impl std::error::Error for AndroidInitError {}
 
 // =============================================================================
 // Initialization
@@ -16,114 +45,122 @@ use std::sync::OnceLock;
 static ANDROID_FILES_DIR: OnceLock<PathBuf> = OnceLock::new();
 static ANDROID_CACHE_DIR: OnceLock<PathBuf> = OnceLock::new();
 
-pub fn init_android(files_dir: &str) {
-	let path = PathBuf::from(files_dir);
-	let _ = ANDROID_FILES_DIR.set(path.clone());
-	let _ = ANDROID_CACHE_DIR.set(path.join("cache"));
+/// Validate a caller-supplied sandbox path.
+fn validate(path: &str) -> Result<PathBuf, AndroidInitError> {
+	if path.is_empty() || !Path::new(path).is_absolute() {
+		return Err(AndroidInitError::InvalidPath);
+	}
+	Ok(PathBuf::from(path))
 }
 
-pub fn init_android_with_cache(files_dir: &str, cache_dir: &str) {
-	let _ = ANDROID_FILES_DIR.set(PathBuf::from(files_dir));
-	let _ = ANDROID_CACHE_DIR.set(PathBuf::from(cache_dir));
+/// Store both paths atomically with respect to the "already initialized" check.
+///
+/// `OnceLock::set` on the files dir is the gate: whoever wins it also sets the
+/// cache dir. A concurrent loser gets `AlreadyInitialized` and changes nothing.
+fn store(files: PathBuf, cache: PathBuf) -> Result<(), AndroidInitError> {
+	ANDROID_FILES_DIR
+		.set(files)
+		.map_err(|_| AndroidInitError::AlreadyInitialized)?;
+	// Only reachable by the single winner of the set above.
+	let _ = ANDROID_CACHE_DIR.set(cache);
+	Ok(())
+}
+
+pub fn init_android(files_dir: &str) -> Result<(), AndroidInitError> {
+	let files = validate(files_dir)?;
+	let cache = files.join("cache");
+	store(files, cache)
+}
+
+pub fn init_android_with_cache(files_dir: &str, cache_dir: &str) -> Result<(), AndroidInitError> {
+	let files = validate(files_dir)?;
+	let cache = validate(cache_dir)?;
+	store(files, cache)
 }
 
 // =============================================================================
 // ndk-context auto-detection (feature-gated)
 // =============================================================================
 
-/// Try to get files dir from ndk-context (for pure Rust Android apps).
-/// Returns None if ndk-context isn't initialized or feature isn't enabled.
 #[cfg(feature = "android-auto")]
-fn try_ndk_context_files_dir() -> Option<PathBuf> {
+mod auto {
+	use super::{ANDROID_CACHE_DIR, ANDROID_FILES_DIR};
 	use jni::objects::{JObject, JString};
+	use std::path::PathBuf;
 
-	// Get the Android context from ndk-context
-	let ctx = ndk_context::android_context();
+	/// Call `Context.<getter>().getAbsolutePath()` through JNI.
+	fn context_path(getter: &str) -> Option<PathBuf> {
+		let ctx = ndk_context::android_context();
 
-	// Safety: ndk-context guarantees these pointers are valid when initialized
-	let vm = unsafe { jni::JavaVM::from_raw(ctx.vm().cast()) }.ok()?;
-	let mut env = vm.attach_current_thread().ok()?;
-	let context = unsafe { JObject::from_raw(ctx.context().cast()) };
+		// Safety: ndk-context guarantees these pointers are valid once it has
+		// been initialized; `from_raw` fails cleanly on a null VM before we
+		// ever touch the context object.
+		let vm = unsafe { jni::JavaVM::from_raw(ctx.vm().cast()) }.ok()?;
+		let mut env = vm.attach_current_thread().ok()?;
+		let context = unsafe { JObject::from_raw(ctx.context().cast()) };
+		if context.is_null() {
+			return None;
+		}
 
-	// Call context.getFilesDir().getAbsolutePath()
-	let files_dir = env
-		.call_method(&context, "getFilesDir", "()Ljava/io/File;", &[])
-		.ok()?
-		.l()
-		.ok()?;
+		let dir = env
+			.call_method(&context, getter, "()Ljava/io/File;", &[])
+			.ok()?
+			.l()
+			.ok()?;
 
-	let abs_path: JString = env
-		.call_method(&files_dir, "getAbsolutePath", "()Ljava/lang/String;", &[])
-		.ok()?
-		.l()
-		.ok()?
-		.into();
+		let abs_path: JString = env
+			.call_method(&dir, "getAbsolutePath", "()Ljava/lang/String;", &[])
+			.ok()?
+			.l()
+			.ok()?
+			.into();
 
-	let path_str: String = env.get_string(&abs_path).ok()?.into();
-	Some(PathBuf::from(path_str))
-}
+		let path_str: String = env.get_string(&abs_path).ok()?.into();
+		Some(PathBuf::from(path_str))
+	}
 
-/// Try to get cache dir from ndk-context (for pure Rust Android apps).
-#[cfg(feature = "android-auto")]
-fn try_ndk_context_cache_dir() -> Option<PathBuf> {
-	use jni::objects::{JObject, JString};
-
-	let ctx = ndk_context::android_context();
-	let vm = unsafe { jni::JavaVM::from_raw(ctx.vm().cast()) }.ok()?;
-	let mut env = vm.attach_current_thread().ok()?;
-	let context = unsafe { JObject::from_raw(ctx.context().cast()) };
-
-	let cache_dir = env
-		.call_method(&context, "getCacheDir", "()Ljava/io/File;", &[])
-		.ok()?
-		.l()
-		.ok()?;
-
-	let abs_path: JString = env
-		.call_method(&cache_dir, "getAbsolutePath", "()Ljava/lang/String;", &[])
-		.ok()?
-		.l()
-		.ok()?
-		.into();
-
-	let path_str: String = env.get_string(&abs_path).ok()?.into();
-	Some(PathBuf::from(path_str))
+	/// Detect both dirs once and store them. Returns the files dir.
+	///
+	/// If detection fails (ndk-context not yet initialized) nothing is cached,
+	/// so a later call can retry.
+	pub(super) fn detect() -> Option<(PathBuf, PathBuf)> {
+		let files = context_path("getFilesDir")?;
+		let cache = context_path("getCacheDir")?;
+		// A manual init may have raced us; whichever landed first wins and
+		// both OnceLocks already agree, so ignoring the result is correct.
+		let _ = ANDROID_FILES_DIR.set(files.clone());
+		let _ = ANDROID_CACHE_DIR.set(cache.clone());
+		Some((files, cache))
+	}
 }
 
 // =============================================================================
 // Helpers
 // =============================================================================
 
-fn files_dir() -> Option<PathBuf> {
-	// First check manual init
-	if let Some(path) = ANDROID_FILES_DIR.get() {
-		return Some(path.clone());
-	}
+/// Fallback when nothing has been initialized yet.
+#[cfg(feature = "android-auto")]
+fn detect() -> Option<(PathBuf, PathBuf)> {
+	auto::detect()
+}
 
-	// Then try ndk-context if feature is enabled
-	#[cfg(feature = "android-auto")]
-	{
-		return try_ndk_context_files_dir();
-	}
-
-	#[cfg(not(feature = "android-auto"))]
+#[cfg(not(feature = "android-auto"))]
+fn detect() -> Option<(PathBuf, PathBuf)> {
 	None
 }
 
+fn files_dir() -> Option<PathBuf> {
+	match ANDROID_FILES_DIR.get() {
+		Some(path) => Some(path.clone()),
+		None => detect().map(|(files, _)| files),
+	}
+}
+
 fn cache() -> Option<PathBuf> {
-	// First check manual init
-	if let Some(path) = ANDROID_CACHE_DIR.get() {
-		return Some(path.clone());
+	match ANDROID_CACHE_DIR.get() {
+		Some(path) => Some(path.clone()),
+		None => detect().map(|(_, cache)| cache),
 	}
-
-	// Then try ndk-context if feature is enabled
-	#[cfg(feature = "android-auto")]
-	{
-		return try_ndk_context_cache_dir();
-	}
-
-	#[cfg(not(feature = "android-auto"))]
-	None
 }
 
 // =============================================================================
@@ -217,4 +254,47 @@ pub fn temp_dir() -> Option<PathBuf> {
 
 pub fn library_dir() -> Option<PathBuf> {
 	None
+}
+
+// =============================================================================
+// Tests (pure validation only; OnceLock state is exercised in tests/android_init.rs)
+// =============================================================================
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	#[test]
+	fn validate_accepts_absolute() {
+		assert_eq!(
+			validate("/data/data/com.example/files"),
+			Ok(PathBuf::from("/data/data/com.example/files"))
+		);
+	}
+
+	#[test]
+	fn validate_rejects_empty() {
+		assert_eq!(validate(""), Err(AndroidInitError::InvalidPath));
+	}
+
+	#[test]
+	fn validate_rejects_relative() {
+		assert_eq!(validate("files"), Err(AndroidInitError::InvalidPath));
+		assert_eq!(validate("./files"), Err(AndroidInitError::InvalidPath));
+		assert_eq!(validate("../files"), Err(AndroidInitError::InvalidPath));
+	}
+
+	#[test]
+	fn error_display_is_readable() {
+		assert!(
+			AndroidInitError::InvalidPath
+				.to_string()
+				.contains("absolute")
+		);
+		assert!(
+			AndroidInitError::AlreadyInitialized
+				.to_string()
+				.contains("already")
+		);
+	}
 }
